@@ -30,6 +30,13 @@
 // (ui/zt1extras.lyt, made below), each switched on or off. Off, each does
 // what the original does (Features.hpp)
 static const int kExtrasPage = 904, kExtrasTab = 1509, kExtrasFirst = 9050;
+// addition: the Game Options' Display tab. Related reason to the Extras tab:
+// the original offers three window sizes (800x600, 1024x768, 1280x1024), all
+// of them 4:3, so running at a screen's own resolution - 16:9, 16:10, an
+// ultrawide - meant editing zoo.ini by hand, and the engine's own widescreen
+// fill could not be reached from the menus at all. The rows here are the
+// display's real modes, asked of SDL, plus that fill and the interface scale.
+static const int kDisplayPage = 905, kDisplayTab = 1510, kDisplayFirst = 9600;
 static std::string extrasLabel(const std::string &name) {
   static const std::map<std::string, std::string> labels = {
       {"allunlocked", "All items unlocked"}, {"fencemodes", "Fence modes"},
@@ -58,10 +65,18 @@ static std::string gameOptionsWithExtras(ResourceManager *rm) {
     return false;
   };
   if (!swap(";state=4096\n;action=3\n;target=903", "state=4096\naction=3\ntarget=" + std::to_string(kExtrasPage)) ||
-      !swap("button = 1530", "button = 1530\nbutton = " + std::to_string(kExtrasTab)))
+      !swap("button = 1530",
+            "button = 1530\nbutton = " + std::to_string(kExtrasTab) +
+                "\nbutton = " + std::to_string(kDisplayTab)))
     return t; // (a gameopts.lyt not like the shipped one: left as it is)
   swap("helpid = 1544", "helpid = 0");
+  // The Display tab is ours: the original has no button left over, so one is
+  // written below the About one, wearing the Graphics tab's settings icon
+  t += "\r\n[DisplayTab]\r\ntype=UIButton\r\nid=" + std::to_string(kDisplayTab) +
+       "\r\nx=154\r\ny=213\r\nanimation=ui/gameopts/setting/setting\r\nlayer=1\r\nstate=4096\r\n" +
+       "action=3\r\ntarget=" + std::to_string(kDisplayPage) + "\r\n";
   t += "\r\n[ExtrasLayout]\r\ntype=UILayout\r\nlayout=ui/zt1extras.lyt\r\nstate=1\r\n";
+  t += "\r\n[DisplayLayout]\r\ntype=UILayout\r\nlayout=ui/zt1display.lyt\r\nstate=1\r\n";
   return t;
 }
 static std::string extrasPage() {
@@ -88,6 +103,45 @@ static std::string extrasPage() {
        "\r\ndx=121\r\ndy=fitfont\r\nfont=3452\r\nfontsize=3453\r\nborder=0\r\njustify=center\r\n" + gold;
   return t;
 }
+// The Display page. Same geometry as the Extras one, and named ids well clear
+// of its 9050s: four rows (9600-9603) with their labels (9620-9623), the title
+// (9642), and two note lines (9640, 9641) that carry the values a built-once
+// layout cannot show by itself - which size is chosen, and the interface
+// scale. The rows are radio buttons, so their state is visible on them.
+static const int kDisplayRows = 4, kDisplayTitle = 9642, kDisplayScreenNote = 9640,
+                 kDisplayScaleNote = 9641, kDisplayHintNote = 9643;
+static std::string displayPage() {
+  std::string t = "[LayoutInfo]\r\nanchor=1032\r\nx=17\r\ny=6\r\ndx=171\r\ndy=440\r\nid=" +
+                  std::to_string(kDisplayPage) + "\r\nlayer=1\r\n\r\n";
+  const std::string gold = "forecolor=237\r\nforecolor=228\r\nforecolor=173\r\nbackcolor=100\r\n"
+                           "backcolor=108\r\nbackcolor=108\r\ntransparent=1\r\nlayer=1\r\n";
+  t += "[Title]\r\ntype=UIText\r\nid=" + std::to_string(kDisplayTitle) +
+       "\r\nx=29\r\ny=29\r\ndx=127\r\ndy=fitfont\r\nfont=3270\r\nfontsize=3271\r\n"
+       "border=2\r\nforecolor=206\r\nforecolor=206\r\nforecolor=206\r\nbackcolor=68\r\n"
+       "backcolor=36\r\nbackcolor=20\r\ntransparent=1\r\nlayer=1\r\njustify=center\r\n\r\n";
+  for (int i = 0; i < kDisplayRows; i++) {
+    // (below the panel's logo, as the original's pages: 22 apart)
+    int y = 150 + i * 22, id = kDisplayFirst + i;
+    t += "[Row" + std::to_string(i) + "]\r\ntype=UIButton\r\nid=" + std::to_string(id) +
+         "\r\nanimation=ui/sharedui/radio/radio\r\nx=36\r\ny=" + std::to_string(y) +
+         "\r\nlayer=1\r\ntransparent=1\r\nstate=2048\r\n\r\n";
+    t += "[RowLabel" + std::to_string(i) + "]\r\ntype=UIText\r\nid=" + std::to_string(id + 20) +
+         "\r\nx=54\r\ny=" + std::to_string(y - 1) +
+         "\r\ndx=111\r\ndy=fitfont\r\nfont=3452\r\nfontsize=3453\r\n"
+         "border=0\r\nalias=" + std::to_string(id) + "\r\n" + gold + "\r\n";
+  }
+  const int noteY = 150 + kDisplayRows * 22;
+  t += "[ScreenNote]\r\ntype=UIText\r\nid=" + std::to_string(kDisplayScreenNote) +
+       "\r\nx=33\r\ny=" + std::to_string(noteY) +
+       "\r\ndx=121\r\ndy=fitfont\r\nfont=3452\r\nfontsize=3453\r\nborder=0\r\njustify=center\r\n" + gold;
+  t += "[ScaleNote]\r\ntype=UIText\r\nid=" + std::to_string(kDisplayScaleNote) +
+       "\r\nx=33\r\ny=" + std::to_string(noteY + 20) +
+       "\r\ndx=121\r\ndy=fitfont\r\nfont=3452\r\nfontsize=3453\r\nborder=0\r\njustify=center\r\n" + gold;
+  t += "[HintNote]\r\ntype=UIText\r\nid=" + std::to_string(kDisplayHintNote) +
+       "\r\nx=33\r\ny=" + std::to_string(noteY + 40) +
+       "\r\ndx=121\r\ndy=fitfont\r\nfont=3452\r\nfontsize=3453\r\nborder=0\r\njustify=center\r\n" + gold;
+  return t;
+}
 
 UiGameScreen::UiGameScreen(ResourceManager *resource_manager,
                            const std::string &mainLayout,
@@ -95,6 +149,7 @@ UiGameScreen::UiGameScreen(ResourceManager *resource_manager,
   this->resource_manager = resource_manager;
   resource_manager->provide("ui/gameopts.lyt", gameOptionsWithExtras);
   resource_manager->provide("ui/zt1extras.lyt", [](ResourceManager *) { return extrasPage(); });
+  resource_manager->provide("ui/zt1display.lyt", [](ResourceManager *) { return displayPage(); });
 
   IniReader *mainReader = resource_manager->getIniReader(mainLayout);
   if (!mainReader) {
@@ -1473,6 +1528,121 @@ void UiGameScreen::setupGameOptions() {
         Settings::saveExtra(name, *value);
       };
     }
+  }
+
+  // Display (addition): the display's own modes, the widescreen fill and the
+  // interface scale - the settings the original's three 4:3 size buttons leave
+  // no way to reach, so that running at a screen's real resolution meant
+  // editing zoo.ini by hand. Each is kept in zoo.ini as the extras are.
+  {
+    if (UiText *title = dynamic_cast<UiText *>(this->getElementById(kDisplayTitle)))
+      title->setText("Display");
+
+    // The sizes this display offers, biggest first, one per size: SDL lists a
+    // mode again for every refresh rate it has
+    std::vector<std::pair<int, int>> sizes;
+    for (int m = 0, n = SDL_GetNumDisplayModes(0); m < n; m++) {
+      SDL_DisplayMode mode;
+      if (SDL_GetDisplayMode(0, m, &mode) != 0)
+        continue;
+      std::pair<int, int> s = {mode.w, mode.h};
+      if (std::find(sizes.begin(), sizes.end(), s) == sizes.end())
+        sizes.push_back(s);
+    }
+    std::sort(sizes.begin(), sizes.end(),
+              [](const std::pair<int, int> &a, const std::pair<int, int> &b) {
+                return a.first * a.second > b.first * b.second;
+              });
+    if (sizes.empty())
+      sizes.push_back({1280, 720});
+
+    auto rowLabel = [this](int row, const std::string &text) {
+      if (UiText *t = dynamic_cast<UiText *>(this->getElementById(kDisplayFirst + 20 + row)))
+        t->setText(text);
+    };
+    auto rowButton = [this](int row) {
+      return dynamic_cast<UiButton *>(this->getElementById(kDisplayFirst + row));
+    };
+    auto note = [this](int id, const std::string &text) {
+      if (UiText *t = dynamic_cast<UiText *>(this->getElementById(id)))
+        t->setText(text);
+    };
+    auto window = [] {
+      SDL_Window *w = SDL_GetKeyboardFocus();
+      return w ? w : SDL_GetMouseFocus();
+    };
+    auto showSize = [note] {
+      note(kDisplayScreenNote, std::to_string(Settings::getInt("user", "screenwidth", 1280)) + " x " +
+                                   std::to_string(Settings::getInt("user", "screenheight", 720)));
+    };
+    auto showScale = [note] {
+      std::string v = Settings::get("user", "uiScale", "0");
+      note(kDisplayScaleNote, (v.empty() || v == "0") ? std::string("fit") : v + "x");
+    };
+
+    rowLabel(0, "Fill the screen *");
+    rowLabel(1, "Fullscreen");
+    rowLabel(2, "Screen size");
+    rowLabel(3, "Interface size *");
+    note(kDisplayHintNote, "* takes effect next start");
+
+    // 0: the widescreen fill ([user] widescreen). The engine reads this once,
+    // as it starts, so it is kept for the next start
+    if (UiButton *b = rowButton(0)) {
+      b->setToggledOn(Settings::getInt("user", "widescreen", 0) != 0);
+      b->onClick = [b] { Settings::set("user", "widescreen", b->isToggledOn() ? "1" : "0"); };
+    }
+
+    // 1: full screen, applied now as the original's own button is
+    if (UiButton *b = rowButton(1)) {
+      SDL_Window *w = window();
+      b->setToggledOn(w && (SDL_GetWindowFlags(w) & SDL_WINDOW_FULLSCREEN) != 0);
+      b->onClick = [b, window] {
+        bool full = b->isToggledOn();
+        if (SDL_Window *w = window())
+          SDL_SetWindowFullscreen(w, full ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+        Settings::setInt("user", "fullscreen", full ? 1 : 0);
+      };
+    }
+
+    // 2: the size, stepping through this display's own and applied at once
+    if (UiButton *b = rowButton(2)) {
+      b->onClick = [sizes, window, showSize] {
+        int w = Settings::getInt("user", "screenwidth", 1280);
+        int h = Settings::getInt("user", "screenheight", 720);
+        size_t at = sizes.size() - 1;
+        for (size_t i = 0; i < sizes.size(); i++)
+          if (sizes[i].first == w && sizes[i].second == h)
+            at = i;
+        const std::pair<int, int> &s = sizes[(at + 1) % sizes.size()];
+        if (SDL_Window *win = window()) {
+          SDL_SetWindowFullscreen(win, 0);
+          SDL_SetWindowSize(win, s.first, s.second);
+          SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+        }
+        Settings::setInt("user", "screenwidth", s.first);
+        Settings::setInt("user", "screenheight", s.second);
+        Settings::setInt("user", "fullscreen", 0);
+        showSize();
+      };
+    }
+
+    // 3: the interface scale ([user] uiScale), read once like the fill
+    if (UiButton *b = rowButton(3)) {
+      b->onClick = [showScale] {
+        static const char *steps[] = {"0", "1", "1.5", "2"};
+        std::string now = Settings::get("user", "uiScale", "0");
+        int at = 0;
+        for (int i = 0; i < 4; i++)
+          if (now == steps[i])
+            at = i;
+        Settings::set("user", "uiScale", steps[(at + 1) % 4]);
+        showScale();
+      };
+    }
+
+    showSize();
+    showScale();
   }
 }
 
