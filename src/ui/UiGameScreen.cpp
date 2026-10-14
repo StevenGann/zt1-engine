@@ -109,7 +109,7 @@ static std::string extrasPage() {
 // layout cannot show by itself - which size is chosen, and the interface
 // scale. The rows are radio buttons, so their state is visible on them.
 static const int kDisplayRows = 4, kDisplayTitle = 9642, kDisplayScreenNote = 9640,
-                 kDisplayScaleNote = 9641, kDisplayHintNote = 9643;
+                 kDisplayScaleNote = 9641, kDisplayHintNote = 9643, kDisplayLabelGap = 20;
 static std::string displayPage() {
   std::string t = "[LayoutInfo]\r\nanchor=1032\r\nx=17\r\ny=6\r\ndx=171\r\ndy=440\r\nid=" +
                   std::to_string(kDisplayPage) + "\r\nlayer=1\r\n\r\n";
@@ -125,7 +125,7 @@ static std::string displayPage() {
     t += "[Row" + std::to_string(i) + "]\r\ntype=UIButton\r\nid=" + std::to_string(id) +
          "\r\nanimation=ui/sharedui/radio/radio\r\nx=36\r\ny=" + std::to_string(y) +
          "\r\nlayer=1\r\ntransparent=1\r\nstate=2048\r\n\r\n";
-    t += "[RowLabel" + std::to_string(i) + "]\r\ntype=UIText\r\nid=" + std::to_string(id + 20) +
+    t += "[RowLabel" + std::to_string(i) + "]\r\ntype=UIText\r\nid=" + std::to_string(id + kDisplayLabelGap) +
          "\r\nx=54\r\ny=" + std::to_string(y - 1) +
          "\r\ndx=111\r\ndy=fitfont\r\nfont=3452\r\nfontsize=3453\r\n"
          "border=0\r\nalias=" + std::to_string(id) + "\r\n" + gold + "\r\n";
@@ -1470,6 +1470,18 @@ void UiGameScreen::setupGameOptions() {
     SDL_Window *w = SDL_GetKeyboardFocus();
     return w ? w : SDL_GetMouseFocus();
   };
+  // The one place that resizes the window and keeps the choice: the original's
+  // three size buttons and the Display tab's size row both come through here
+  auto applySize = [window](int w, int h) {
+    if (SDL_Window *win = window()) {
+      SDL_SetWindowFullscreen(win, 0);
+      SDL_SetWindowSize(win, w, h);
+      SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    }
+    Settings::setInt("user", "screenwidth", w);
+    Settings::setInt("user", "screenheight", h);
+    Settings::setInt("user", "fullscreen", 0);
+  };
   auto showMode = [this, window] {
     SDL_Window *w = window();
     bool full = w && (SDL_GetWindowFlags(w) & SDL_WINDOW_FULLSCREEN) != 0;
@@ -1496,16 +1508,7 @@ void UiGameScreen::setupGameOptions() {
       if (savedW == s[1])
         b->choose();
       int w = s[1], h = s[2];
-      b->onClick = [w, h, window] {
-        if (SDL_Window *win = window()) {
-          SDL_SetWindowFullscreen(win, 0);
-          SDL_SetWindowSize(win, w, h);
-          SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-        }
-        Settings::setInt("user", "screenwidth", w);
-        Settings::setInt("user", "screenheight", h);
-        Settings::setInt("user", "fullscreen", 0);
-      };
+      b->onClick = [w, h, applySize] { applySize(w, h); };
     }
 
   // Extras (addition): each of the engine's additions on or off, kept in
@@ -1576,7 +1579,7 @@ void UiGameScreen::setupGameOptions() {
               });
 
     auto rowLabel = [this](int row, const std::string &text) {
-      if (UiText *t = dynamic_cast<UiText *>(this->getElementById(kDisplayFirst + 20 + row)))
+      if (UiText *t = dynamic_cast<UiText *>(this->getElementById(kDisplayFirst + kDisplayLabelGap + row)))
         t->setText(text);
     };
     auto rowButton = [this](int row) {
@@ -1585,10 +1588,6 @@ void UiGameScreen::setupGameOptions() {
     auto note = [this](int id, const std::string &text) {
       if (UiText *t = dynamic_cast<UiText *>(this->getElementById(id)))
         t->setText(text);
-    };
-    auto window = [] {
-      SDL_Window *w = SDL_GetKeyboardFocus();
-      return w ? w : SDL_GetMouseFocus();
     };
     auto showSize = [note] {
       note(kDisplayScreenNote, std::to_string(Settings::getInt("user", "screenwidth", 1280)) + " x " +
@@ -1609,7 +1608,7 @@ void UiGameScreen::setupGameOptions() {
     // as it starts, so it is kept for the next start
     if (UiButton *b = rowButton(0)) {
       b->setToggledOn(Settings::getInt("user", "widescreen", 0) != 0);
-      b->onClick = [b] { Settings::set("user", "widescreen", b->isToggledOn() ? "1" : "0"); };
+      b->onClick = [b] { Settings::setInt("user", "widescreen", b->isToggledOn() ? 1 : 0); };
     }
 
     // 1: full screen, applied now as the original's own button is
@@ -1626,7 +1625,7 @@ void UiGameScreen::setupGameOptions() {
 
     // 2: the size, stepping through this display's own and applied at once
     if (UiButton *b = rowButton(2)) {
-      b->onClick = [sizes, window, showSize] {
+      b->onClick = [sizes, applySize, showSize] {
         int w = Settings::getInt("user", "screenwidth", 1280);
         int h = Settings::getInt("user", "screenheight", 720);
         size_t at = sizes.size() - 1;
@@ -1634,14 +1633,7 @@ void UiGameScreen::setupGameOptions() {
           if (sizes[i].first == w && sizes[i].second == h)
             at = i;
         const std::pair<int, int> &s = sizes[(at + 1) % sizes.size()];
-        if (SDL_Window *win = window()) {
-          SDL_SetWindowFullscreen(win, 0);
-          SDL_SetWindowSize(win, s.first, s.second);
-          SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-        }
-        Settings::setInt("user", "screenwidth", s.first);
-        Settings::setInt("user", "screenheight", s.second);
-        Settings::setInt("user", "fullscreen", 0);
+        applySize(s.first, s.second);
         showSize();
       };
     }
