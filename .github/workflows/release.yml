@@ -148,3 +148,37 @@ jobs:
             # the licence)
             cbx submit . --allow-private --no-licence -m "$(git log -1 --format=%s) (${GITHUB_SHA::7})"
           fi
+
+  # ours: the Linux port. The same tag gets the Linux folder beside the Windows
+  # downloads, so one release is playable on either system. It waits for the
+  # job above because that is the job that creates the release; if that one
+  # fails there is nothing to add to, and the tag is worth looking at anyway.
+  linux:
+    runs-on: ubuntu-24.04
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The libraries the build needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            libzip-dev \
+            libx11-dev libxext-dev libxrender-dev libxrandr-dev libxcursor-dev \
+            libxi-dev libxfixes-dev libxss-dev libxinerama-dev \
+            libasound2-dev libpulse-dev
+
+      # No --official: that flag is the Windows updater's, and the engine's
+      # updater is Windows-only. A Linux folder is run where it is unpacked.
+      - name: Build the engine and pack it
+        run: python3 engine-build-resources/make_linux_release.py --version "${GITHUB_REF_NAME#v}"
+
+      - name: Add it to the release
+        shell: bash
+        run: |
+          gh release upload "$GITHUB_REF_NAME" \
+            dist/ZT1-Engine-*.tar.gz dist/ZT1-Engine-*.tar.gz.sha256 --clobber
