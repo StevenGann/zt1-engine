@@ -31,6 +31,19 @@ inline int setReceiveTimeout(SOCKET s, DWORD milliseconds) {
                       sizeof milliseconds);
 }
 
+// --- Waiting for a socket to become writable -----------------------------
+// Winsock ignores select()'s first argument, so the Windows call needs no
+// adjustment -- it reads the descriptor from the set. Same signature as the
+// POSIX side below, so a caller is written once and reads the same anywhere.
+// (Thanks to AlexC1991 for this: the first version of this file defined
+// selectWrite only in the POSIX branch, and Lab.cpp calls it unconditionally,
+// so the Windows build stopped at Lab.cpp:384. Every other name below is one
+// Windows already provides.)
+inline int selectWrite(SOCKET fd, fd_set *writeSet, timeval *timeout) {
+  (void)fd;
+  return ::select(0, nullptr, writeSet, nullptr, timeout);
+}
+
 #else // !_WIN32
 
 #include <arpa/inet.h>
