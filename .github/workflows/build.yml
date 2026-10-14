@@ -1,8 +1,8 @@
-# Every push to a branch, and every pull request: do the engine and its
-# installer build (Windows, MSVC, x64)? The installer is kept for a week as
-# the run's artifact, for anyone testing a pull request. (The self-test and
-# the formula checks need Zoo Tycoon's own files, which can't be on a build
-# server: run them in the ZT1 Lab before a release.)
+# Every push to a branch, and every pull request: do the engine build on
+# Windows (MSVC, x64) and on Linux (CMake, Ninja), and keep what each made as
+# the run's artifact, for anyone testing a pull request or wanting a build to
+# play. (The self-test and the formula checks need Zoo Tycoon's own files,
+# which can't be on a build server: run them in the ZT1 Lab before a release.)
 name: Build
 
 on:
@@ -10,6 +10,7 @@ on:
     branches-ignore: [main]   # (main and the release tags build in release.yml)
     tags-ignore: ['*']
   pull_request:
+  workflow_dispatch:          # ours: so a fork can also ask for a build by hand
 
 jobs:
   windows:
@@ -32,3 +33,40 @@ jobs:
           name: zt1-engine-build-${{ github.run_number }}
           path: dist/ZT1-Engine-Setup-*.exe
           retention-days: 7
+
+  # ours: the Linux port. Builds the engine and packs the folder that runs on
+  # its own (engine-build-resources/make_linux_release.py): the binary, the
+  # fonts, the licence, and the shared libraries a desktop Linux is not certain
+  # to have already, as a single tar.gz.
+  #
+  # Pinned to 24.04 rather than ubuntu-latest on purpose. The runner's libc is
+  # the oldest one a player's machine may have, so a newer runner would quietly
+  # raise the floor for everyone; this is the version to move forward
+  # deliberately, not by the calendar.
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The libraries the build needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            libzip-dev \
+            libx11-dev libxext-dev libxrender-dev libxrandr-dev libxcursor-dev \
+            libxi-dev libxfixes-dev libxss-dev libxinerama-dev \
+            libasound2-dev libpulse-dev
+
+      - name: Build the engine and pack it
+        run: python3 engine-build-resources/make_linux_release.py --version "$(date -u +%Y.%-m.%-d)"
+
+      # Kept longer than the Windows artifact: this is a folder a person can
+      # unpack and play, not only a check that the code still compiles.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zt1-engine-linux-${{ github.run_number }}
+          path: |
+            dist/ZT1-Engine-*.tar.gz
+            dist/ZT1-Engine-*.tar.gz.sha256
+          retention-days: 30
