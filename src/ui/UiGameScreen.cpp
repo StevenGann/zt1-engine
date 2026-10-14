@@ -1538,23 +1538,42 @@ void UiGameScreen::setupGameOptions() {
     if (UiText *title = dynamic_cast<UiText *>(this->getElementById(kDisplayTitle)))
       title->setText("Display");
 
-    // The sizes this display offers, biggest first, one per size: SDL lists a
-    // mode again for every refresh rate it has
+    // The sizes to offer. Asked of SDL first: X11 lists every mode a display
+    // has, but Wayland - what a Steam Deck's game mode runs on - lists none at
+    // all, so the size it is running at now is taken as well, and it is the
+    // one that cannot be left out. The common sizes follow, cut to those that
+    // fit the desktop, because a window is useful at sizes a monitor need not
+    // advertise. The Deck's own 1280x800 is here by name for exactly that
+    // reason. Biggest first, one of each: SDL lists a mode per refresh rate.
     std::vector<std::pair<int, int>> sizes;
+    SDL_DisplayMode desktop;
+    if (SDL_GetDesktopDisplayMode(0, &desktop) == 0)
+      sizes.push_back({desktop.w, desktop.h});
     for (int m = 0, n = SDL_GetNumDisplayModes(0); m < n; m++) {
       SDL_DisplayMode mode;
       if (SDL_GetDisplayMode(0, m, &mode) != 0)
         continue;
-      std::pair<int, int> s = {mode.w, mode.h};
-      if (std::find(sizes.begin(), sizes.end(), s) == sizes.end())
-        sizes.push_back(s);
+      sizes.push_back({mode.w, mode.h});
     }
+    SDL_Rect bounds = {0, 0, 0, 0};
+    SDL_GetDisplayBounds(0, &bounds);
+    static const std::pair<int, int> common[] = {
+        {3840, 2160}, {2560, 1440}, {2560, 1080}, {1920, 1200}, {1920, 1080}, {1680, 1050},
+        {1600, 900},  {1440, 900},  {1366, 768},  {1280, 800},  {1280, 720},  {1152, 720},
+        {1024, 768},  {960, 600},   {800, 600},
+    };
+    for (const std::pair<int, int> &s : common)
+      if (bounds.w <= 0 || (s.first <= bounds.w && s.second <= bounds.h))
+        sizes.push_back(s);
+    std::vector<std::pair<int, int>> unique;
+    for (const std::pair<int, int> &s : sizes)
+      if (std::find(unique.begin(), unique.end(), s) == unique.end())
+        unique.push_back(s);
+    sizes = unique;
     std::sort(sizes.begin(), sizes.end(),
               [](const std::pair<int, int> &a, const std::pair<int, int> &b) {
                 return a.first * a.second > b.first * b.second;
               });
-    if (sizes.empty())
-      sizes.push_back({1280, 720});
 
     auto rowLabel = [this](int row, const std::string &text) {
       if (UiText *t = dynamic_cast<UiText *>(this->getElementById(kDisplayFirst + 20 + row)))
