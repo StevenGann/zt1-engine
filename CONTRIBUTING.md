@@ -70,6 +70,29 @@ Two things Linux needs help with, both handled where they arise:
     relative means relative to the working directory, which is the game's own
     folder by the time resources are read.
 
+### Making a Linux build to give someone
+
+```bash
+python3 engine-build-resources/make_linux_release.py
+```
+
+This is specific to this fork. It builds into `build-linux/` and packs
+`dist/ZT1-Engine-<version>-linux-x86_64.tar.gz`: the binary, the fonts, the
+licence, the release notes, and the shared libraries a desktop Linux is not
+certain to have already (libzip and the libraries it wants), with a `run.sh`
+that points the loader at them. Unpack it anywhere and play: name the game with
+`ZT1_GAME_DIR`, or pass the folder to `run.sh`, or leave the unpacked folder
+inside the game's own.
+
+`--no-build` packs the binary already in `build-linux/` again, which is faster
+while working on the artefact itself.
+
+The build workflow does this on every push, keeping the result as the
+`zt1-engine-linux-<run number>` artifact for 30 days. It runs on
+`ubuntu-24.04`, not `ubuntu-latest`, on purpose: the runner's libc is the
+oldest one a player's machine may have, so that should move forward
+deliberately rather than by the calendar.
+
 ### Testing your change
 
 ```bash
